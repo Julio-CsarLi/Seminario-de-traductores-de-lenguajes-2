@@ -1,146 +1,180 @@
 #include <iostream>
-#include <vector>
 #include <string>
-#include <iomanip>
-#include <cctype>
+#include <vector>
+#include <list>
+#include <iomanip> // Alinear columnas
 
 using namespace std;
 
-struct Regla {
-    int longitud_derecha; // Cuantos elementos se sacan de la pila
-    int columna_izq;      // Columna de las variable
+// Elementos de la pila
+
+class ElementoPila {
+public:
+    virtual void muestra() {}
+    virtual string obtenerCadena() { return ""; }
+    virtual int getEstado() { return -1; }
 };
 
-// Matriz de columnas ejercicio 1
-string tabla_ejercicio1[5][4] = {
-    {"d2", "",    "",     "1"}, // Estado 0
-    {"",   "",    "acc",  "" }, // Estado 1
-    {"",   "d3",  "",     "" }, // Estado 2
-    {"d4", "",    "",     "" }, // Estado 3
-    {"",   "",    "r1",   "" }  // Estado 4
+class Terminal : public ElementoPila {
+protected:
+    string simbolo;
+public:
+    Terminal(string s) {
+        this->simbolo = s;
+    }
+    void muestra() {
+        cout << simbolo << " ";
+    }
+    string obtenerCadena() override {
+        return simbolo + " ";
+    }
 };
 
-// Reglas ejercicio 1:
-Regla reglas_ejercicio1[2] = {
-    {0, 0}, // Regla 0
-    {3, 3}  // Regla 1
+class NoTerminal : public ElementoPila {
+protected:
+    string simbolo;
+public:
+    NoTerminal(string s) {
+        this->simbolo = s;
+    }
+    void muestra() {
+        cout << simbolo << " ";
+    }
+    string obtenerCadena() override {
+        return simbolo + " ";
+    }
 };
 
-// matriz de columnas ejercicio 2
-string tabla_ejercicio2[5][4] = {
-    {"d2", "",    "",     "1"}, // Estado 0
-    {"",   "",    "acc",  "" }, // Estado 1
-    {"",   "d3",  "r2",   "" }, // Estado 2
-    {"d2", "",    "",     "4"}, // Estado 3
-    {"",   "",    "r1",   "" }  // Estado 4
+class Estado : public ElementoPila {
+protected:
+    int estado;
+public:
+    Estado(int e) {
+        this->estado = e;
+    }
+    void muestra() {
+        cout << estado << " ";
+    }
+    string obtenerCadena() override {
+        return to_string(estado) + " ";
+    }
+    int getEstado() {
+        return estado;
+    }
 };
 
-// Reglas ejercicio 2:
-Regla reglas_ejercicio2[3] = {
-    {0, 0}, // Regla 0
-    {3, 3}, // Regla 1
-    {1, 3}  // Regla 2
-};
+class Pila {
+private:
+    list<ElementoPila*> lista;
+public:
+    void push(ElementoPila* x) {
+        lista.push_front(x);
+    }
 
+    ElementoPila* pop() {
+        ElementoPila* x = *lista.begin();
+        lista.erase(lista.begin());
+        return x;
+    }
 
-// Algoritmo
+    ElementoPila* top() {
+        return *lista.begin();
+    }
 
-// Analizador lexico:
-vector<int> escanear_tokens(const string& entrada) {
-    vector<int> tokens;
-    for (size_t i = 0; i < entrada.length(); i++) {
-        if (isalpha(entrada[i])) {
-            // Si es una letra, avanzamos hasta que termine la palabra
-            while (i + 1 < entrada.length() && isalpha(entrada[i+1])) { i++; }
-            tokens.push_back(0); // 0 = id
-        } else if (entrada[i] == '+') {
-            tokens.push_back(1); // 1 = +
+    void muestra() {
+        list<ElementoPila*>::reverse_iterator it;
+        for (it = lista.rbegin(); it != lista.rend(); it++) {
+            (*it)->muestra();
         }
     }
-    tokens.push_back(2); // 2 = $ (fin de la cadena)
-    return tokens;
-}
 
-// Imprimir la pila como texto
-string pila_a_string(const vector<int>& pila) {
-    string res = "";
-    for (int estado : pila) res += to_string(estado) + " ";
-    return res;
-}
+    // Juntamos el texto de la pila en un string
+    string obtenerCadenaPila() {
+        string resultado = "";
+        list<ElementoPila*>::reverse_iterator it;
+        for (it = lista.rbegin(); it != lista.rend(); it++) {
+            resultado += (*it)->obtenerCadena();
+        }
+        return resultado;
+    }
+};
 
 // Analizador sintactico
-void analizar_LR1(string tabla[5][4], Regla reglas[], const string& entrada) {
-    vector<int> tokens = escanear_tokens(entrada);
-    vector<int> pila;
-    pila.push_back(0); // El estado inicial siempre es 0
+
+string nombre_token(int token) {
+    if (token == 0) return "id";
+    if (token == 1) return "+";
+    if (token == 2) return "$";
+    return "";
+}
+
+int main() {
+    vector<int> entrada = {0, 1, 0, 2};
+
+// Matriz
+    string tabla[5][4] = {
+        {"d2", "",    "",     "1"},
+        {"",   "",    "acc",  "" },
+        {"",   "d3",  "",     "" },
+        {"d4", "",    "",     "" },
+        {"",   "",    "r1",   "" }
+    };
+
+    Pila pila;
+    pila.push(new Estado(0));
+
     int cursor = 0;
 
-    cout << "\nAnalizando cadena: " << entrada << "\n";
-    cout << left << setw(25) << "Pila" << setw(15) << "Token Actual" << "Accion\n";
-    cout << string(60, '-') << "\n";
+    cout << "Simulacion con pila de objetos\n\n";
 
     while (true) {
-        int estado_actual = pila.back();
-        int token_actual = tokens[cursor];
+        int estado_actual = pila.top()->getEstado();
+        int token_actual = entrada[cursor];
         string accion = tabla[estado_actual][token_actual];
 
-        // Se traduce el numero de token a texto para su impresion
-        string nombre_token = (token_actual == 0) ? "id" : (token_actual == 1) ? "+" : "$";
-        cout << left << setw(25) << pila_a_string(pila) << setw(15) << nombre_token;
+        // Imprimir
+        string texto_pila = "Pila: " + pila.obtenerCadenaPila();
 
-        // Validar
+        // Reserva 30 espacios para la pila, si la pila mide menos, rellena con espacios blanco
+        cout << left << setw(30) << texto_pila
+             << "| Entrada: " << setw(5) << nombre_token(token_actual)
+             << " | Accion: " << accion << "\n";
+
         if (accion == "") {
-            cout << ">> ERROR SINTACTICO. Casilla [" << estado_actual << ", " << nombre_token << "] vacia.\n";
+            cout << "\nError sintactico\n";
             break;
         }
         else if (accion == "acc") {
-            cout << "r0 (ACEPTADO)\n";
-            cout << "\nRESULTADO: La cadena es VALIDA.\n";
+            cout << "\nLa cadena fue aceptada\n";
             break;
         }
-        else if (accion[0] == 'd') {
-            // Desplazamiento
-            cout << accion << "\n";
-            int nuevo_estado = stoi(accion.substr(1));
-            pila.push_back(nuevo_estado);
-            cursor++; // Avanzar al siguiente token
+        else if (accion == "d2") {
+            pila.push(new Terminal(nombre_token(token_actual)));
+            pila.push(new Estado(2));
+            cursor++;
         }
-        else if (accion[0] == 'r') {
-            // Reduccion
-            cout << accion << " (Sacando " << reglas[stoi(accion.substr(1))].longitud_derecha << " elementos) -> ";
-
-            int num_regla = stoi(accion.substr(1));
-            int cantidad_a_sacar = reglas[num_regla].longitud_derecha;
-
-            // Estados de la pila
-            for(int i = 0; i < cantidad_a_sacar; i++) {
-                pila.pop_back();
+        else if (accion == "d3") {
+            pila.push(new Terminal(nombre_token(token_actual)));
+            pila.push(new Estado(3));
+            cursor++;
+        }
+        else if (accion == "d4") {
+            pila.push(new Terminal(nombre_token(token_actual)));
+            pila.push(new Estado(4));
+            cursor++;
+        }
+        else if (accion == "r1") {
+            for (int i = 0; i < 6; i++) {
+                pila.pop();
             }
 
-            // Realizar el Salto o goto
-            int estado_tope_nuevo = pila.back();
-            int columna_variable = reglas[num_regla].columna_izq;
-            string salto = tabla[estado_tope_nuevo][columna_variable];
+            int nuevo_estado = pila.top()->getEstado();
+            string salto_texto = tabla[nuevo_estado][3];
 
-            pila.push_back(stoi(salto));
-            cout << "Salto a " << salto << "\n";
+            pila.push(new NoTerminal("E"));
+            pila.push(new Estado(stoi(salto_texto)));
         }
     }
-}
-
-// Funcion
-int main() {
-    cout << "========================================\n";
-    cout << "           PRUEBA EJERCICIO 1           \n";
-    cout << "       Gramatica: E -> id + id          \n";
-    cout << "========================================\n";
-    analizar_LR1(tabla_ejercicio1, reglas_ejercicio1, "hola+mundo");
-
-    cout << "\n\n========================================\n";
-    cout << "           PRUEBA EJERCICIO 2           \n";
-    cout << "     Gramatica: E -> id + E | id        \n";
-    cout << "========================================\n";
-    analizar_LR1(tabla_ejercicio2, reglas_ejercicio2, "a+b+c+d+e+f");
 
     return 0;
 }
